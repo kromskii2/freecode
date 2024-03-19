@@ -1,0 +1,176 @@
+import pygame
+import random
+
+# Инициализация Pygame
+pygame.init()
+
+# Установка параметров экрана
+SCREEN_WIDTH = 300
+SCREEN_HEIGHT = 600
+BLOCK_SIZE = 30
+GRID_WIDTH = SCREEN_WIDTH // BLOCK_SIZE
+GRID_HEIGHT = SCREEN_HEIGHT // BLOCK_SIZE
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (128, 128, 128)
+
+# Создание экрана
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("Tetris")
+
+# Определение форм фигур Тетриса
+tetris_shapes = [
+    [[1, 1, 1],
+     [0, 1, 0]],
+
+    [[0, 2, 2],
+     [2, 2, 0]],
+
+    [[3, 3, 0],
+     [0, 3, 3]],
+
+    [[4, 0, 0],
+     [4, 4, 4]],
+
+    [[0, 0, 5],
+     [5, 5, 5]],
+
+    [[6, 6, 6, 6]],
+
+    [[7, 7],
+     [7, 7]]
+]
+
+# Класс фигуры Тетриса
+class TetrisPiece:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.shape = random.choice(tetris_shapes)
+        self.color = random.randint(1, 7)
+
+    def rotate(self):
+        self.shape = [list(row) for row in zip(*self.shape[::-1])]
+
+    def move(self, dx, dy):
+        self.x += dx
+        self.y += dy
+
+    def draw(self, surface):
+        for y, row in enumerate(self.shape):
+            for x, cell in enumerate(row):
+                if cell:
+                    pygame.draw.rect(surface, colors[self.color], (self.x + x, self.y + y, 1, 1), 0)
+
+# Функция отрисовки сетки
+def draw_grid(surface):
+    for y in range(GRID_HEIGHT):
+        for x in range(GRID_WIDTH):
+            pygame.draw.rect(surface, GRAY, (x, y, 1, 1), 1)
+
+# Функция проверки столкновений
+def check_collision(board, piece, offset):
+    off_x, off_y = offset
+    for y, row in enumerate(piece.shape):
+        for x, cell in enumerate(row):
+            if cell and board[y + piece.y + off_y][x + piece.x + off_x]:
+                return True
+    return False
+
+# Функция обновления доски
+def update_board(board, piece):
+    for y, row in enumerate(piece.shape):
+        for x, cell in enumerate(row):
+            if cell:
+                board[y + piece.y][x + piece.x] = piece.color
+
+# Функция очистки заполненных рядов
+def clear_rows(board):
+    rows_cleared = 0
+    y = GRID_HEIGHT - 1
+    while y >= 0:
+        if all(board[y]):
+            del board[y]
+            board.insert(0, [0] * GRID_WIDTH)
+            rows_cleared += 1
+        else:
+            y -= 1
+    return rows_cleared
+
+# Функция рисования текущего состояния игры
+def draw_game(screen, board, piece):
+    screen.fill(WHITE)
+    draw_grid(screen)
+    for y, row in enumerate(board):
+        for x, cell in enumerate(row):
+            if cell:
+                pygame.draw.rect(screen, colors[cell], (x, y, 1, 1), 0)
+    piece.draw(screen)
+    pygame.display.flip()
+
+# Основная функция игры
+def run_game():
+    board = [[0] * GRID_WIDTH for _ in range(GRID_HEIGHT)]
+    piece = TetrisPiece(2, 0)
+    clock = pygame.time.Clock()
+    fall_time = 0
+    fall_speed = 0.5
+    game_over = False
+
+    while not game_over:
+        board_copy = [row[:] for row in board]
+        fall_time += clock.get_rawtime()
+        clock.tick()
+
+        # Падение фигуры
+        if fall_time / 1000 >= fall_speed:
+            fall_time = 0
+            piece.move(0, 1)
+            if check_collision(board, piece, (0, 0)):
+                piece.move(0, -1)
+                update_board(board, piece)
+                rows_cleared = clear_rows(board)
+                if rows_cleared:
+                    fall_speed = max(0.1, fall_speed - 0.01 * rows_cleared)
+                piece = TetrisPiece(2, 0)
+                if check_collision(board, piece, (0, 0)):
+                    game_over = True
+
+        # Обработка событий
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_over = True
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    piece.move(-1, 0)
+                    if check_collision(board, piece, (0, 0)):
+                        piece.move(1, 0)
+                elif event.key == pygame.K_RIGHT:
+                    piece.move(1, 0)
+                    if check_collision(board, piece, (0, 0)):
+                        piece.move(-1, 0)
+                elif event.key == pygame.K_DOWN:
+                    piece.move(0, 1)
+                    if check_collision(board, piece, (0, 0)):
+                        piece.move(0, -1)
+                elif event.key == pygame.K_UP:
+                    piece.rotate()
+                    if check_collision(board, piece, (0, 0)):
+                        piece.rotate()
+
+        # Отрисовка текущего состояния игры
+        draw_game(screen, board, piece)
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    colors = {
+        1: (255, 0, 0),
+        2: (0, 255, 0),
+        3: (0, 0, 255),
+        4: (255, 255, 0),
+        5: (255, 0, 255),
+        6: (0, 255, 255),
+        7: (255, 165, 0)
+    }
+    run_game()
